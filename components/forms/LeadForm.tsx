@@ -10,23 +10,8 @@ import { LeadSchema } from "@/lib/validators";
 import { track } from "@/lib/analytics";
 import { trackEvent } from "@/lib/track-event";
 import { cn } from "@/lib/cn";
-import { useApiContext } from "@/context/ApiContext";
 
-const REGISTER_URL = process.env.NEXT_PUBLIC_REGISTER_URL ?? "/parabens";
-const PRE_REGISTER_ENDPOINT = "/auth/pre-register";
-
-type PreRegisterErrorBody = { message?: string | string[] } | string | null | undefined;
-
-function extractErrorMessage(body: PreRegisterErrorBody): string | null {
-  if (!body) return null;
-  if (typeof body === "string") return body;
-  if (typeof body === "object" && "message" in body) {
-    const msg = body.message;
-    if (typeof msg === "string") return msg;
-    if (Array.isArray(msg) && msg.length > 0) return String(msg[msg.length - 1]);
-  }
-  return null;
-}
+const REGISTER_URL = process.env.NEXT_PUBLIC_REGISTER_URL || "https://voice.juridia.com.br/register";
 
 type Variant = "hero" | "cta";
 
@@ -45,11 +30,9 @@ export function LeadForm({
   variant?: Variant;
   className?: string;
 }) {
-  const { PostAPI } = useApiContext();
-
   const [values, setValues] = useState<FormState>({ nome: "", email: "", telefone: "" });
   const [errors, setErrors] = useState<FieldErrors>({});
-  const [status, setStatus] = useState<"idle" | "submitting" | "success" | "error">("idle");
+  const [status, setStatus] = useState<"idle" | "submitting" | "success">("idle");
   const [submitError, setSubmitError] = useState<string | null>(null);
 
   function update<K extends keyof FormState>(key: K, value: FormState[K]) {
@@ -75,30 +58,10 @@ export function LeadForm({
     const payload = parsed.data;
     setStatus("submitting");
 
-    const response = await PostAPI<PreRegisterErrorBody>(
-      PRE_REGISTER_ENDPOINT,
-      {
-        name: payload.nome,
-        email: payload.email,
-        mobilePhone: payload.telefone,
-      },
-      false,
-    );
-
-    const ok = response.status >= 200 && response.status < 300;
-
-    if (!ok) {
-      setStatus("error");
-      setSubmitError(
-        extractErrorMessage(response.body) ??
-          "Não foi possível criar sua conta agora. Tente novamente em instantes.",
-      );
-      return;
-    }
-
     track("lead_submit", { source: payload.source });
 
-    // Meta Pixel + CAPI: dispara Lead só após sucesso no pré-cadastro.
+    // Meta Pixel + CAPI: registra o envio da LP; a conta é criada na etapa
+    // seguinte, quando a pessoa define a senha no Voice.
     // Quebra o nome em primeiro/sobrenome para melhorar EMQ.
     const [firstName, ...rest] = payload.nome.trim().split(/\s+/);
     const lastName = rest.join(" ");
