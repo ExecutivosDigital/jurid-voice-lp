@@ -82,6 +82,7 @@ export function LeadForm({
       email: payload.email,
       telefone: payload.telefone,
       source: payload.source ?? variant,
+      entry: "voice-lp",
     });
 
     setStatus("success");
